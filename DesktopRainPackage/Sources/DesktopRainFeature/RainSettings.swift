@@ -55,6 +55,15 @@ public final class RainSettings: @unchecked Sendable {
         case zenGarden = "Zen Garden"
     }
     
+    /// Distinct audio profiles
+    public enum SoundProfile: String, CaseIterable {
+        case mist = "Mist"
+        case drizzle = "Drizzle"
+        case downpour = "Downpour"
+        case storm = "Storm"
+        case zen = "Zen"
+    }
+    
     /// Apply a preset to the current settings
     public func applyPreset(_ preset: RainPreset) {
         switch preset {
@@ -62,22 +71,36 @@ public final class RainSettings: @unchecked Sendable {
             intensity = 0.5
             direction = 0
             bounceIntensity = 0.5
+            soundProfile = .mist
         case .springDrizzle:
             intensity = 1.0
             direction = 15 // Subtle from left
             bounceIntensity = 1.0
+            soundProfile = .drizzle
         case .tropicalDownpour:
             intensity = 4.0 // Extreme
             direction = 0
             bounceIntensity = 0.5 // Heavy rain splats more
+            soundProfile = .downpour
         case .windyStorm:
             intensity = 2.0 // Heavy
             direction = -15 // Subtle from right
             bounceIntensity = 1.0
+            soundProfile = .storm
         case .zenGarden:
             intensity = 0.5
             direction = 0
             bounceIntensity = 0 // No bounce
+            soundProfile = .zen
+        }
+    }
+    
+    private var _soundProfile: SoundProfile = .drizzle
+    public var soundProfile: SoundProfile {
+        get { lock.lock(); defer { lock.unlock() }; return _soundProfile }
+        set { 
+            lock.lock(); _soundProfile = newValue; lock.unlock()
+            AudioManager.shared.updateFromSettings()
         }
     }
     

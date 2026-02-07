@@ -34,6 +34,11 @@ public class AppDelegate: NSObject, NSApplicationDelegate {
         soundItem.state = RainSettings.shared.isSoundEnabled ? .on : .off
         menu.addItem(soundItem)
         
+        // Sound Profile Submenu
+        let soundProfileItem = NSMenuItem(title: "Sound Profile", action: nil, keyEquivalent: "")
+        soundProfileItem.submenu = createSoundProfileMenu()
+        menu.addItem(soundProfileItem)
+        
         menu.addItem(NSMenuItem.separator())
         
         // Intensity Submenu
@@ -136,6 +141,23 @@ public class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
     
+    private func createSoundProfileMenu() -> NSMenu {
+        let menu = NSMenu()
+        for profile in RainSettings.SoundProfile.allCases {
+            let item = NSMenuItem(title: profile.rawValue, action: #selector(setSoundProfile(_:)), keyEquivalent: "")
+            item.representedObject = profile
+            menu.addItem(item)
+        }
+        return menu
+    }
+    
+    @objc private func setSoundProfile(_ sender: NSMenuItem) {
+        if let profile = sender.representedObject as? RainSettings.SoundProfile {
+            RainSettings.shared.soundProfile = profile
+            statusItem?.menu?.items.forEach { updateMenuStates($0.submenu ?? NSMenu()) }
+        }
+    }
+    
     @objc private func toggleSound(_ sender: NSMenuItem) {
         RainSettings.shared.isSoundEnabled.toggle()
         statusItem?.menu?.items.forEach { updateMenuStates($0.submenu ?? NSMenu()) }
@@ -152,9 +174,12 @@ public class AppDelegate: NSObject, NSApplicationDelegate {
             
             // Handle Presets checkmarks (by name matching)
             if item.representedObject is RainSettings.RainPreset {
-                // For simplicity, we'll just clear preset checkmarks when any setting is manually changed,
-                // or just leave them off unless we want to track the "active" preset.
                 item.state = .off 
+            }
+            
+            // Handle Sound Profile checkmarks
+            if let profile = item.representedObject as? RainSettings.SoundProfile {
+                item.state = RainSettings.shared.soundProfile == profile ? .on : .off
             }
             
             if let value = item.representedObject as? Float {

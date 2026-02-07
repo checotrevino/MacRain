@@ -7,10 +7,44 @@ public final class AudioManager: @unchecked Sendable {
     
     private let engine = AVAudioEngine()
     private let lock = NSLock()
-    private let noiseSource = AVAudioSourceNode { _, _, frameCount, audioBufferList in
+    
+    // Pink Noise State (Voss-McCartney approximation)
+    private var pinkRows = [Float](repeating: 0, count: 12)
+    private var pinkIndex: Int = 0
+    private var pinkSum: Float = 0
+    
+    // LFO State
+    private var lfoTheta: Float = 0
+    private var currentLFOValue: Float = 0
+    
+    private lazy var noiseSource = AVAudioSourceNode { [weak self] _, _, frameCount, audioBufferList in
+        guard let self = self else { return noErr }
         let ablPointer = UnsafeMutableAudioBufferListPointer(audioBufferList)
+        
         for frame in 0..<Int(frameCount) {
-            let sample = (Float.random(in: -1...1))
+            // Pink Noise Logic
+            self.lock.lock()
+            let white = Float.random(in: -1...1)
+            var i = 0
+            var mask = 1
+            while (self.pinkIndex & mask) != 0 && i < self.pinkRows.count {
+                mask <<= 1
+                i += 1
+            }
+            if i < self.pinkRows.count {
+                self.pinkSum -= self.pinkRows[i]
+                let r = Float.random(in: -1...1) / Float(self.pinkRows.count)
+                self.pinkRows[i] = r
+                self.pinkSum += r
+            }
+            let sample = (white * 0.1 + self.pinkSum) * 2.0 // Boost and mix
+            self.pinkIndex = (self.pinkIndex + 1) & 0x0FFF
+            
+            // LFO for modulation
+            self.lfoTheta += 0.0001 // Slow modulation
+            self.currentLFOValue = sin(self.lfoTheta)
+            self.lock.unlock()
+            
             for buffer in ablPointer {
                 let buf: UnsafeMutableBufferPointer<Float> = UnsafeMutableBufferPointer(buffer)
                 buf[frame] = sample
@@ -70,18 +104,37 @@ public final class AudioManager: @unchecked Sendable {
         
         let settings = RainSettings.shared
         let isEnabled = settings.isSoundEnabled
+        let profile = settings.soundProfile
         
-        // Target volume based on intensity (logarithmic-ish)
-        let targetVolume = isEnabled ? min(1.0, settings.intensity * 0.2) : 0
+        var baseVolume: Float = 0
+        var baseFreq: Float = 2000
         
-        // Target frequency based on intensity (brighter for heavy rain)
-        // Light rain: 1000Hz, Heavy: 4000Hz
-        let targetFreq = 1000 + (settings.intensity * 800)
+        switch profile {
+        case .mist:
+            baseVolume = 0.15
+            baseFreq = 800
+        case .drizzle:
+            baseVolume = 0.3
+            baseFreq = 1500
+        case .downpour:
+            baseVolume = 0.7
+            baseFreq = 3500
+        case .storm:
+            baseVolume = 0.6
+            baseFreq = 2500 // Windy texture will be added via LFO in future or just frequency
+        case .zen:
+            baseVolume = 0.1
+            baseFreq = 600
+        }
+        
+        // Intensity multiplier
+        let intensityScale = min(1.5, settings.intensity)
+        let targetVolume = isEnabled ? baseVolume * intensityScale : 0
         
         // Smoothly update parameters
         mainMixer.outputVolume = targetVolume
-        lowPassFilter.bands[0].frequency = min(8000, targetFreq)
+        lowPassFilter.bands[0].frequency = baseFreq
         
-        print("🔊 Audio Update: Vol \(targetVolume), Freq \(targetFreq)")
+        print("🔊 Audio Profile: \(profile.rawValue), Vol \(targetVolume), Freq \(baseFreq)")
     }
 }
