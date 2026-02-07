@@ -44,6 +44,18 @@ public final class RainSettings: @unchecked Sendable {
         }
     }
     
+    private var _isThunderEnabled: Bool = true
+    public var isThunderEnabled: Bool {
+        get { lock.lock(); defer { lock.unlock() }; return _isThunderEnabled }
+        set { lock.lock(); _isThunderEnabled = newValue; lock.unlock() }
+    }
+    
+    private var _thunderProbability: Double = 0.001 // Frames between thunder
+    public var thunderProbability: Double {
+        get { lock.lock(); defer { lock.unlock() }; return _thunderProbability }
+        set { lock.lock(); _thunderProbability = newValue; lock.unlock() }
+    }
+    
     private init() {}
     
     /// Real-life inspired rain presets
@@ -72,26 +84,31 @@ public final class RainSettings: @unchecked Sendable {
             direction = 0
             bounceIntensity = 0.5
             soundProfile = .mist
+            thunderProbability = 0.0005
         case .springDrizzle:
             intensity = 1.0
             direction = 15 // Subtle from left
             bounceIntensity = 1.0
             soundProfile = .drizzle
+            thunderProbability = 0.001
         case .tropicalDownpour:
             intensity = 4.0 // Extreme
             direction = 0
             bounceIntensity = 0.5 // Heavy rain splats more
             soundProfile = .downpour
+            thunderProbability = 0.005
         case .windyStorm:
             intensity = 2.0 // Heavy
             direction = -15 // Subtle from right
             bounceIntensity = 1.0
             soundProfile = .storm
+            thunderProbability = 0.008
         case .zenGarden:
             intensity = 0.5
             direction = 0
             bounceIntensity = 0 // No bounce
             soundProfile = .zen
+            thunderProbability = 0
         }
     }
     

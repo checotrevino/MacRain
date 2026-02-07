@@ -39,6 +39,11 @@ public class AppDelegate: NSObject, NSApplicationDelegate {
         soundProfileItem.submenu = createSoundProfileMenu()
         menu.addItem(soundProfileItem)
         
+        // Thunder Toggle
+        let thunderItem = NSMenuItem(title: "Thunder & Lightning", action: #selector(toggleThunder(_:)), keyEquivalent: "t")
+        thunderItem.state = RainSettings.shared.isThunderEnabled ? .on : .off
+        menu.addItem(thunderItem)
+        
         menu.addItem(NSMenuItem.separator())
         
         // Intensity Submenu
@@ -165,11 +170,23 @@ public class AppDelegate: NSObject, NSApplicationDelegate {
         sender.state = RainSettings.shared.isSoundEnabled ? .on : .off
     }
     
+    @objc private func toggleThunder(_ sender: NSMenuItem) {
+        RainSettings.shared.isThunderEnabled.toggle()
+        statusItem?.menu?.items.forEach { updateMenuStates($0.submenu ?? NSMenu()) }
+        // Also update the item itself if it's not in a submenu
+        sender.state = RainSettings.shared.isThunderEnabled ? .on : .off
+    }
+    
     private func updateMenuStates(_ menu: NSMenu?) {
         menu?.items.forEach { item in
             // Handle Sound Toggle
             if item.action == #selector(toggleSound(_:)) {
                 item.state = RainSettings.shared.isSoundEnabled ? .on : .off
+            }
+            
+            // Handle Thunder Toggle
+            if item.action == #selector(toggleThunder(_:)) {
+                item.state = RainSettings.shared.isThunderEnabled ? .on : .off
             }
             
             // Handle Presets checkmarks (by name matching)

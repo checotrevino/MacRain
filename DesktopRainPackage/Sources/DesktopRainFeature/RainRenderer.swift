@@ -12,8 +12,13 @@ public class RainRenderer: NSObject, MTKViewDelegate {
     private let commandQueue: MTLCommandQueue
     private var raindropPipeline: MTLRenderPipelineState!
     private var splashPipeline: MTLRenderPipelineState!
+    private var lightningPipeline: MTLRenderPipelineState!
     private var raindropBuffer: MTLBuffer?
     private var splashBuffer: MTLBuffer?
+    
+    // MARK: - Visual Effects
+    
+    public var lightningAlpha: Float = 0
     
     // MARK: - Particle System
     
@@ -191,6 +196,15 @@ public class RainRenderer: NSObject, MTKViewDelegate {
             
             return float4(splashColor, alpha);
         }
+
+        vertex float4 lightning_vertex(uint vid [[vertex_id]]) {
+            float2 positions[4] = { float2(-1, -1), float2(1, -1), float2(-1, 1), float2(1, 1) };
+            return float4(positions[vid], 0, 1);
+        }
+
+        fragment float4 lightning_fragment(float4 in [[stage_in]], constant float &alpha [[buffer(0)]]) {
+            return float4(0.9, 0.95, 1.0, alpha * 0.4); // Pale blue/white flash
+        }
         """
         
         do {
@@ -235,6 +249,20 @@ public class RainRenderer: NSObject, MTKViewDelegate {
             print("🔧 Creating splash pipeline...")
             splashPipeline = try device.makeRenderPipelineState(descriptor: splashDesc)
             print("✅ Splash pipeline created successfully")
+            
+            // Lightning pipeline
+            let lightningDesc = MTLRenderPipelineDescriptor()
+            lightningDesc.vertexFunction = library.makeFunction(name: "lightning_vertex")
+            lightningDesc.fragmentFunction = library.makeFunction(name: "lightning_fragment")
+            lightningDesc.colorAttachments[0].pixelFormat = .bgra8Unorm
+            lightningDesc.colorAttachments[0].isBlendingEnabled = true
+            lightningDesc.colorAttachments[0].sourceRGBBlendFactor = .sourceAlpha
+            lightningDesc.colorAttachments[0].destinationRGBBlendFactor = .oneMinusSourceAlpha
+            lightningDesc.colorAttachments[0].sourceAlphaBlendFactor = .one
+            lightningDesc.colorAttachments[0].destinationAlphaBlendFactor = .oneMinusSourceAlpha
+            
+            lightningPipeline = try device.makeRenderPipelineState(descriptor: lightningDesc)
+            print("✅ Lightning pipeline created successfully")
             
             // Pre-allocate buffers
             setupBuffers()
@@ -302,6 +330,12 @@ public class RainRenderer: NSObject, MTKViewDelegate {
         // Update physics
         updatePhysics(deltaTime: clampedDelta)
         
+        // Decay lightning flash
+        if lightningAlpha > 0 {
+            lightningAlpha -= Float(clampedDelta) * 2.0 // Fade out over 0.5s
+            if lightningAlpha < 0 { lightningAlpha = 0 }
+        }
+        
         // Update windows periodically (every 0.1 seconds)
         if currentTime - lastWindowUpdateTime > 0.1 {
             physicsEngine.updateWindowInfo()
@@ -328,6 +362,11 @@ public class RainRenderer: NSObject, MTKViewDelegate {
         
         // Render splash particles
         renderSplashes(encoder: renderEncoder)
+
+        // Render lightning flash (if active)
+        if lightningAlpha > 0 {
+            renderLightning(encoder: renderEncoder)
+        }
         
         renderEncoder.endEncoding()
         commandBuffer.present(drawable)
@@ -335,6 +374,14 @@ public class RainRenderer: NSObject, MTKViewDelegate {
     }
     
     private func updatePhysics(deltaTime: CGFloat) {
+        // Randomly trigger lightning based on settings
+        let settings = RainSettings.shared
+        if settings.isThunderEnabled && lightningAlpha == 0 {
+            if Double.random(in: 0...1) < settings.thunderProbability {
+                triggerLightning()
+            }
+        }
+
         // Update raindrops
         for i in 0..<raindrops.count {
             if raindrops[i].isActive {
@@ -366,6 +413,27 @@ public class RainRenderer: NSObject, MTKViewDelegate {
         
         // Clean up dead splash particles periodically
         splashParticles.removeAll { !$0.isActive }
+    }
+
+    private func triggerLightning() {
+        lightningAlpha = 1.0
+        
+        // Play thunder with random delay (1-4 seconds) to simulate distance
+        let delay = Double.random(in: 1.0...4.0)
+        DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
+            AudioManager.shared.playThunder()
+        }
+    }
+
+    private func renderLightning(encoder: MTLRenderCommandEncoder) {
+        guard let pipeline = lightningPipeline else { return }
+        
+        encoder.setRenderPipelineState(pipeline)
+        
+        var alpha = lightningAlpha
+        encoder.setFragmentBytes(&alpha, length: MemoryLayout<Float>.size, index: 0)
+        
+        encoder.drawPrimitives(type: .triangleStrip, vertexStart: 0, vertexCount: 4)
     }
     
     private func renderRaindrops(encoder: MTLRenderCommandEncoder) {

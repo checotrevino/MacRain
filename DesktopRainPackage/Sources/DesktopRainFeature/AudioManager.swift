@@ -53,7 +53,32 @@ public final class AudioManager: @unchecked Sendable {
         return noErr
     }
     
+    private var thunderEnvelope: Float = 0
+    private lazy var thunderSource = AVAudioSourceNode { [weak self] _, _, frameCount, audioBufferList in
+        guard let self = self else { return noErr }
+        let ablPointer = UnsafeMutableAudioBufferListPointer(audioBufferList)
+        
+        for frame in 0..<Int(frameCount) {
+            self.lock.lock()
+            let env = self.thunderEnvelope
+            if self.thunderEnvelope > 0 {
+                self.thunderEnvelope -= 0.00002 // Slow decay
+            }
+            self.lock.unlock()
+            
+            let white = Float.random(in: -1...1)
+            let sample = white * env * 0.5
+            
+            for buffer in ablPointer {
+                let buf: UnsafeMutableBufferPointer<Float> = UnsafeMutableBufferPointer(buffer)
+                buf[frame] += sample // Mix with main noise
+            }
+        }
+        return noErr
+    }
+    
     private let lowPassFilter = AVAudioUnitEQ(numberOfBands: 1)
+    private let thunderFilter = AVAudioUnitEQ(numberOfBands: 1)
     private let mainMixer: AVAudioMixerNode
     
     private var _isRunning = false
@@ -71,14 +96,24 @@ public final class AudioManager: @unchecked Sendable {
         let format = mainMixer.outputFormat(forBus: 0)
         engine.attach(noiseSource)
         engine.attach(lowPassFilter)
+        engine.attach(thunderSource)
+        engine.attach(thunderFilter)
         
         let filterBand = lowPassFilter.bands[0]
         filterBand.filterType = .lowPass
         filterBand.frequency = 2000
         filterBand.bypass = false
         
+        let tBand = thunderFilter.bands[0]
+        tBand.filterType = .lowPass
+        tBand.frequency = 100 // Deep rumble
+        tBand.bypass = false
+        
         engine.connect(noiseSource, to: lowPassFilter, format: format)
         engine.connect(lowPassFilter, to: mainMixer, format: format)
+        
+        engine.connect(thunderSource, to: thunderFilter, format: format)
+        engine.connect(thunderFilter, to: mainMixer, format: format)
         
         mainMixer.outputVolume = 0
     }
@@ -97,6 +132,13 @@ public final class AudioManager: @unchecked Sendable {
     public func stop() {
         engine.stop()
         isRunning = false
+    }
+    
+    public func playThunder() {
+        lock.lock()
+        thunderEnvelope = 1.0
+        lock.unlock()
+        print("⛈️ Thunder Triggered")
     }
     
     public func updateFromSettings() {
