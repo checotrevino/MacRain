@@ -21,8 +21,16 @@ public class RainRenderer: NSObject, MTKViewDelegate {
     private var splashParticles: [SplashParticle] = []
     private let physicsEngine = PhysicsEngine()
     
-    /// Number of active raindrops
-    private let raindropCount = 1200
+    /// Base number of raindrops (Medium intensity)
+    private let baseRaindropCount = 1200
+    
+    /// Target number of raindrops based on settings
+    private var targetRaindropCount: Int {
+        Int(Float(baseRaindropCount) * RainSettings.shared.intensity)
+    }
+    
+    /// Maximum possible raindrops for buffer allocation
+    private let maxRaindropCount = 5000
     
     /// Maximum splash particles
     private let maxSplashParticles = 500
@@ -114,21 +122,24 @@ public class RainRenderer: NSObject, MTKViewDelegate {
             return out;
         }
         
-        // Raindrop fragment shader - creates realistic rain streak
+        // Raindrop fragment shader - creates realistic teardrop/streak
         fragment float4 raindrop_fragment(RaindropVertex in [[stage_in]]) {
-            // Create gradient for motion blur effect
-            float gradient = 1.0 - in.uv.y;
-            gradient = pow(gradient, 0.5);  // Soften the gradient
+            // Teardrop shape: bulbous at the bottom (uv.y near 1.0), tapering at top
+            // Horizontal falloff that narrows towards the top
+            float xOffset = abs(in.uv.x - 0.5) * 2.0;
             
-            // Horizontal falloff for round edges
-            float centerDist = abs(in.uv.x - 0.5) * 2.0;
-            float edgeFade = 1.0 - pow(centerDist, 2.0);
+            // Width varies with y: wider at bottom (1.0), narrower at top (0.0)
+            float widthAtY = mix(0.3, 1.0, in.uv.y);
+            float edgeFade = 1.0 - smoothstep(widthAtY - 0.1, widthAtY + 0.1, xOffset);
+            
+            // Motion blur tail: brighter at bottom, fades out towards top
+            float verticalFade = pow(in.uv.y, 1.5);
             
             // Combine for final alpha
-            float alpha = gradient * edgeFade * in.opacity;
+            float alpha = verticalFade * edgeFade * in.opacity;
             
-            // Slight blue tint for water
-            float3 rainColor = float3(0.7, 0.8, 1.0);
+            // Cooler water color with slight translucency
+            float3 rainColor = float3(0.8, 0.9, 1.0);
             
             return float4(rainColor, alpha);
         }
@@ -165,16 +176,18 @@ public class RainRenderer: NSObject, MTKViewDelegate {
             return out;
         }
         
-        // Splash fragment shader - circular droplet
+        // Splash fragment shader - more realistic water burst
         fragment float4 splash_fragment(RaindropVertex in [[stage_in]]) {
             float2 centered = in.uv * 2.0 - 1.0;
             float dist = length(centered);
             
-            // Soft circle
-            float alpha = 1.0 - smoothstep(0.5, 1.0, dist);
-            alpha *= in.opacity;
+            // Create a ring effect for some splashes
+            float circle = 1.0 - smoothstep(0.4, 0.7, dist);
+            float ring = smoothstep(0.2, 0.5, dist) * (1.0 - smoothstep(0.5, 0.8, dist));
             
-            float3 splashColor = float3(0.75, 0.85, 1.0);
+            float alpha = mix(circle, ring, 0.3) * in.opacity;
+            
+            float3 splashColor = float3(0.85, 0.92, 1.0);
             
             return float4(splashColor, alpha);
         }
@@ -233,13 +246,13 @@ public class RainRenderer: NSObject, MTKViewDelegate {
     }
     
     private func setupBuffers() {
-        let raindropBufferSize = raindropCount * 24 // 24 bytes per instance
+        let raindropBufferSize = maxRaindropCount * 24 // Pre-allocate for max intensity
         raindropBuffer = device.makeBuffer(length: raindropBufferSize, options: .storageModeShared)
         
         let splashBufferSize = maxSplashParticles * 16 // 16 bytes per instance
         splashBuffer = device.makeBuffer(length: splashBufferSize, options: .storageModeShared)
         
-        print("📦 Metal buffers allocated. Raindrop: \(raindropBufferSize) bytes, Splash: \(splashBufferSize) bytes")
+        print("📦 Metal buffers allocated (Max support). Raindrop: \(raindropBufferSize) bytes, Splash: \(splashBufferSize) bytes")
     }
     
     // MARK: - Particle Management
@@ -247,9 +260,8 @@ public class RainRenderer: NSObject, MTKViewDelegate {
     private func initializeRaindrops() {
         raindrops.removeAll()
         
-        for _ in 0..<raindropCount {
+        for _ in 0..<maxRaindropCount {
             // Distribute drops across screen with random Y positions for staggered start
-            // Some start on screen, some start above
             let x = CGFloat.random(in: 0...screenWidth)
             let y = CGFloat.random(in: -screenHeight...screenHeight)
             raindrops.append(Raindrop(x: x, y: y))
@@ -268,7 +280,7 @@ public class RainRenderer: NSObject, MTKViewDelegate {
         physicsEngine.updateScreenInfo(width: screenWidth, height: screenHeight)
         
         if raindrops.isEmpty {
-            print("🌧️ Initializing \(raindropCount) raindrops")
+            print("🌧️ Initializing \(maxRaindropCount) raindrops for buffer pool")
             initializeRaindrops()
         }
     }
@@ -369,8 +381,8 @@ public class RainRenderer: NSObject, MTKViewDelegate {
             var padding: Float = 0
         }
         
-        let activeDrops = raindrops.filter { $0.isActive }
-        let count = min(activeDrops.count, raindropCount)
+        let count = targetRaindropCount
+        let activeDrops = raindrops.prefix(count)
         guard count > 0 else { return }
         
         // Update buffer contents safely

@@ -113,12 +113,14 @@ public class PhysicsEngine {
         drop.y = surfaceTop - drop.length
         
         // Apply bounce/splat physics
-        // Reverse vertical velocity with significant energy loss
-        drop.vy = -drop.vy * restitution
+        // Scale restitution by user setting
+        let activeRestitution = CGFloat(0.15 * RainSettings.shared.bounceIntensity)
+        drop.vy = -drop.vy * activeRestitution
         
-        // Apply friction/drift - much less aggressive now
+        // Apply friction and wind drift from settings
         drop.vx *= friction
-        drop.vx += CGFloat.random(in: -15...15)
+        let windDrift = RainSettings.shared.horizontalWindVelocity
+        drop.vx += windDrift * 0.1 + CGFloat.random(in: -10...10)
         
         // Reduce opacity and size significantly on first hit
         drop.opacity *= 0.5
@@ -130,13 +132,14 @@ public class PhysicsEngine {
             drop.isActive = false
         }
         
-        // Generate splash particles
-        return generateSplash(at: drop.x, y: surfaceTop, intensity: isDock ? 1.2 : 0.9)
+        // Generate splash particles - reduced count for realism
+        return generateSplash(at: drop.x, y: surfaceTop, intensity: isDock ? 0.8 : 0.6)
     }
     
     /// Generate splash particles at impact point
     private func generateSplash(at x: CGFloat, y: CGFloat, intensity: CGFloat) -> [SplashParticle] {
-        let particleCount = Int(CGFloat.random(in: 3...6) * intensity)
+        // Reduced base particle count (2-4 instead of 3-6)
+        let particleCount = Int(CGFloat.random(in: 2...4) * intensity)
         var particles: [SplashParticle] = []
         
         for _ in 0..<particleCount {
