@@ -7,7 +7,7 @@ public final class RainSettings: @unchecked Sendable {
     
     private let lock = NSLock()
     
-    private var _intensity: Float = 1.0
+    private var _intensity: Float = 1.5 // Gentle Mist default
     public var intensity: Float {
         get { lock.lock(); defer { lock.unlock() }; return _intensity }
         set { 
@@ -25,7 +25,7 @@ public final class RainSettings: @unchecked Sendable {
         }
     }
     
-    private var _bounceIntensity: Float = 1.0
+    private var _bounceIntensity: Float = 0.2 // Gentle Mist default
     public var bounceIntensity: Float {
         get { lock.lock(); defer { lock.unlock() }; return _bounceIntensity }
         set { 
@@ -50,24 +50,33 @@ public final class RainSettings: @unchecked Sendable {
         set { lock.lock(); _isThunderEnabled = newValue; lock.unlock() }
     }
     
-    private var _thunderProbability: Double = 0.001 // Frames between thunder
+    private var _thunderProbability: Double = 0.0001 // Gentle Mist default
     public var thunderProbability: Double {
         get { lock.lock(); defer { lock.unlock() }; return _thunderProbability }
         set { lock.lock(); _thunderProbability = newValue; lock.unlock() }
     }
     
-    private var _dropSizeMultiplier: Float = 1.0
+    private var _dropSizeMultiplier: Float = 0.3 // Gentle Mist default
     public var dropSizeMultiplier: Float {
         get { lock.lock(); defer { lock.unlock() }; return _dropSizeMultiplier }
         set { lock.lock(); _dropSizeMultiplier = newValue; lock.unlock() }
     }
     
-    private var _dropSpeedMultiplier: Float = 1.0
+    private var _dropSpeedMultiplier: Float = 0.4 // Gentle Mist default
     public var dropSpeedMultiplier: Float {
         get { lock.lock(); defer { lock.unlock() }; return _dropSpeedMultiplier }
         set { lock.lock(); _dropSpeedMultiplier = newValue; lock.unlock() }
     }
     
+    private var _soundProfile: SoundProfile = .mist // Gentle Mist default
+    public var soundProfile: SoundProfile {
+        get { lock.lock(); defer { lock.unlock() }; return _soundProfile }
+        set { 
+            lock.lock(); _soundProfile = newValue; lock.unlock()
+            AudioManager.shared.updateFromSettings()
+        }
+    }
+
     private init() {}
     
     /// Real-life inspired rain presets
@@ -131,15 +140,6 @@ public final class RainSettings: @unchecked Sendable {
             thunderProbability = 0
             dropSizeMultiplier = 0.8
             dropSpeedMultiplier = 0.7
-        }
-    }
-    
-    private var _soundProfile: SoundProfile = .drizzle
-    public var soundProfile: SoundProfile {
-        get { lock.lock(); defer { lock.unlock() }; return _soundProfile }
-        set { 
-            lock.lock(); _soundProfile = newValue; lock.unlock()
-            AudioManager.shared.updateFromSettings()
         }
     }
     
