@@ -22,6 +22,13 @@ public class AppDelegate: NSObject, NSApplicationDelegate {
         
         let menu = NSMenu()
         
+        // Presets Submenu
+        let presetsMenuItem = NSMenuItem(title: "Presets", action: nil, keyEquivalent: "")
+        presetsMenuItem.submenu = createPresetsMenu()
+        menu.addItem(presetsMenuItem)
+        
+        menu.addItem(NSMenuItem.separator())
+        
         // Intensity Submenu
         let intensityMenuItem = NSMenuItem(title: "Intensity", action: nil, keyEquivalent: "")
         intensityMenuItem.submenu = createIntensityMenu()
@@ -99,19 +106,47 @@ public class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
     
+    private func createPresetsMenu() -> NSMenu {
+        let menu = NSMenu()
+        for preset in RainSettings.RainPreset.allCases {
+            let item = NSMenuItem(title: preset.rawValue, action: #selector(setPreset(_:)), keyEquivalent: "")
+            item.representedObject = preset
+            menu.addItem(item)
+        }
+        return menu
+    }
+    
+    @objc private func setPreset(_ sender: NSMenuItem) {
+        if let preset = sender.representedObject as? RainSettings.RainPreset {
+            RainSettings.shared.applyPreset(preset)
+            
+            // Update ALL menus to reflect the new state
+            statusItem?.menu?.items.forEach { mainItem in
+                if let submenu = mainItem.submenu {
+                    updateMenuStates(submenu)
+                }
+            }
+        }
+    }
+    
     private func updateMenuStates(_ menu: NSMenu?) {
         menu?.items.forEach { item in
+            // Handle Presets checkmarks (by name matching)
+            if item.representedObject is RainSettings.RainPreset {
+                // For simplicity, we'll just clear preset checkmarks when any setting is manually changed,
+                // or just leave them off unless we want to track the "active" preset.
+                item.state = .off 
+            }
+            
             if let value = item.representedObject as? Float {
-                if menu?.title == "Intensity" { item.state = RainSettings.shared.intensity == value ? .on : .off }
-                else if menu?.title == "Direction" { item.state = RainSettings.shared.direction == value ? .on : .off }
-                else if menu?.title == "Bounce" { item.state = RainSettings.shared.bounceIntensity == value ? .on : .off }
-                
-                // Also handle the case where the submenu itself doesn't have a title set by us
-                // We'll just check all shared settings
-                if RainSettings.shared.intensity == value && item.action == #selector(setIntensity(_:)) { item.state = .on }
-                else if RainSettings.shared.direction == value && item.action == #selector(setDirection(_:)) { item.state = .on }
-                else if RainSettings.shared.bounceIntensity == value && item.action == #selector(setBounce(_:)) { item.state = .on }
-                else { item.state = .off }
+                let action = item.action
+                if action == #selector(setIntensity(_:)) {
+                    item.state = RainSettings.shared.intensity == value ? .on : .off
+                } else if action == #selector(setDirection(_:)) {
+                    item.state = RainSettings.shared.direction == value ? .on : .off
+                } else if action == #selector(setBounce(_:)) {
+                    item.state = RainSettings.shared.bounceIntensity == value ? .on : .off
+                }
             }
         }
     }

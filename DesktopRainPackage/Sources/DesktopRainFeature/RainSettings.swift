@@ -27,6 +27,41 @@ public final class RainSettings: @unchecked Sendable {
     
     private init() {}
     
+    /// Real-life inspired rain presets
+    public enum RainPreset: String, CaseIterable {
+        case gentleMist = "Gentle Mist"
+        case springDrizzle = "Spring Drizzle"
+        case tropicalDownpour = "Tropical Downpour"
+        case windyStorm = "Windy Storm"
+        case zenGarden = "Zen Garden"
+    }
+    
+    /// Apply a preset to the current settings
+    public func applyPreset(_ preset: RainPreset) {
+        switch preset {
+        case .gentleMist:
+            intensity = 0.5
+            direction = 0
+            bounceIntensity = 0.5
+        case .springDrizzle:
+            intensity = 1.0
+            direction = 15 // Subtle from left
+            bounceIntensity = 1.0
+        case .tropicalDownpour:
+            intensity = 4.0 // Extreme
+            direction = 0
+            bounceIntensity = 0.5 // Heavy rain splats more
+        case .windyStorm:
+            intensity = 2.0 // Heavy
+            direction = -15 // Subtle from right
+            bounceIntensity = 1.0
+        case .zenGarden:
+            intensity = 0.5
+            direction = 0
+            bounceIntensity = 0 // No bounce
+        }
+    }
+    
     /// Convert direction degrees to horizontal velocity component range
     public var horizontalWindVelocity: CGFloat {
         return CGFloat(direction) * 10.0
