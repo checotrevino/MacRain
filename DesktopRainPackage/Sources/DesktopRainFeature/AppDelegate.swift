@@ -29,6 +29,13 @@ public class AppDelegate: NSObject, NSApplicationDelegate {
         
         menu.addItem(NSMenuItem.separator())
         
+        // Sound Toggle
+        let soundItem = NSMenuItem(title: "Sound Effects", action: #selector(toggleSound(_:)), keyEquivalent: "s")
+        soundItem.state = RainSettings.shared.isSoundEnabled ? .on : .off
+        menu.addItem(soundItem)
+        
+        menu.addItem(NSMenuItem.separator())
+        
         // Intensity Submenu
         let intensityMenuItem = NSMenuItem(title: "Intensity", action: nil, keyEquivalent: "")
         intensityMenuItem.submenu = createIntensityMenu()
@@ -129,8 +136,20 @@ public class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
     
+    @objc private func toggleSound(_ sender: NSMenuItem) {
+        RainSettings.shared.isSoundEnabled.toggle()
+        statusItem?.menu?.items.forEach { updateMenuStates($0.submenu ?? NSMenu()) }
+        // Also update the item itself if it's not in a submenu
+        sender.state = RainSettings.shared.isSoundEnabled ? .on : .off
+    }
+    
     private func updateMenuStates(_ menu: NSMenu?) {
         menu?.items.forEach { item in
+            // Handle Sound Toggle
+            if item.action == #selector(toggleSound(_:)) {
+                item.state = RainSettings.shared.isSoundEnabled ? .on : .off
+            }
+            
             // Handle Presets checkmarks (by name matching)
             if item.representedObject is RainSettings.RainPreset {
                 // For simplicity, we'll just clear preset checkmarks when any setting is manually changed,

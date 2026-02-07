@@ -10,19 +10,38 @@ public final class RainSettings: @unchecked Sendable {
     private var _intensity: Float = 1.0
     public var intensity: Float {
         get { lock.lock(); defer { lock.unlock() }; return _intensity }
-        set { lock.lock(); defer { lock.unlock() }; _intensity = newValue }
+        set { 
+            lock.lock(); _intensity = newValue; lock.unlock()
+            AudioManager.shared.updateFromSettings()
+        }
     }
     
     private var _direction: Float = 0
     public var direction: Float {
         get { lock.lock(); defer { lock.unlock() }; return _direction }
-        set { lock.lock(); defer { lock.unlock() }; _direction = newValue }
+        set { 
+            lock.lock(); _direction = newValue; lock.unlock()
+            AudioManager.shared.updateFromSettings()
+        }
     }
     
     private var _bounceIntensity: Float = 1.0
     public var bounceIntensity: Float {
         get { lock.lock(); defer { lock.unlock() }; return _bounceIntensity }
-        set { lock.lock(); defer { lock.unlock() }; _bounceIntensity = newValue }
+        set { 
+            lock.lock(); _bounceIntensity = newValue; lock.unlock()
+            AudioManager.shared.updateFromSettings()
+        }
+    }
+    
+    private var _isSoundEnabled: Bool = false
+    public var isSoundEnabled: Bool {
+        get { lock.lock(); defer { lock.unlock() }; return _isSoundEnabled }
+        set { 
+            lock.lock(); _isSoundEnabled = newValue; lock.unlock()
+            if newValue { AudioManager.shared.start() }
+            AudioManager.shared.updateFromSettings()
+        }
     }
     
     private init() {}
