@@ -56,6 +56,18 @@ public final class RainSettings: @unchecked Sendable {
         set { lock.lock(); _thunderProbability = newValue; lock.unlock() }
     }
     
+    private var _dropSizeMultiplier: Float = 1.0
+    public var dropSizeMultiplier: Float {
+        get { lock.lock(); defer { lock.unlock() }; return _dropSizeMultiplier }
+        set { lock.lock(); _dropSizeMultiplier = newValue; lock.unlock() }
+    }
+    
+    private var _dropSpeedMultiplier: Float = 1.0
+    public var dropSpeedMultiplier: Float {
+        get { lock.lock(); defer { lock.unlock() }; return _dropSpeedMultiplier }
+        set { lock.lock(); _dropSpeedMultiplier = newValue; lock.unlock() }
+    }
+    
     private init() {}
     
     /// Real-life inspired rain presets
@@ -80,35 +92,45 @@ public final class RainSettings: @unchecked Sendable {
     public func applyPreset(_ preset: RainPreset) {
         switch preset {
         case .gentleMist:
-            intensity = 0.5
+            intensity = 1.5 // More particles but tiny
             direction = 0
-            bounceIntensity = 0.5
+            bounceIntensity = 0.2
             soundProfile = .mist
-            thunderProbability = 0.0005
+            thunderProbability = 0.0001
+            dropSizeMultiplier = 0.3
+            dropSpeedMultiplier = 0.4
         case .springDrizzle:
             intensity = 1.0
             direction = 15 // Subtle from left
             bounceIntensity = 1.0
             soundProfile = .drizzle
-            thunderProbability = 0.001
+            thunderProbability = 0.0003
+            dropSizeMultiplier = 1.0
+            dropSpeedMultiplier = 1.0
         case .tropicalDownpour:
             intensity = 4.0 // Extreme
             direction = 0
             bounceIntensity = 0.5 // Heavy rain splats more
             soundProfile = .downpour
-            thunderProbability = 0.005
+            thunderProbability = 0.001
+            dropSizeMultiplier = 1.2
+            dropSpeedMultiplier = 1.2
         case .windyStorm:
             intensity = 2.0 // Heavy
             direction = -15 // Subtle from right
             bounceIntensity = 1.0
             soundProfile = .storm
-            thunderProbability = 0.008
+            thunderProbability = 0.002
+            dropSizeMultiplier = 1.0
+            dropSpeedMultiplier = 1.1
         case .zenGarden:
             intensity = 0.5
             direction = 0
             bounceIntensity = 0 // No bounce
             soundProfile = .zen
             thunderProbability = 0
+            dropSizeMultiplier = 0.8
+            dropSpeedMultiplier = 0.7
         }
     }
     

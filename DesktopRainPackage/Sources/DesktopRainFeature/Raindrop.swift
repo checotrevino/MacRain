@@ -25,16 +25,20 @@ public struct Raindrop {
         self.x = x
         self.y = y
         
+        let settings = RainSettings.shared
+        let sizeMult = CGFloat(settings.dropSizeMultiplier)
+        let speedMult = CGFloat(settings.dropSpeedMultiplier)
+        
         // Base horizontal drift + user wind setting
-        let wind = RainSettings.shared.horizontalWindVelocity
+        let wind = settings.horizontalWindVelocity
         self.vx = wind + CGFloat.random(in: -20...20)
         
         // Strong downward velocity (800-1200 pts/s)
-        self.vy = CGFloat.random(in: 800...1200)
+        self.vy = CGFloat.random(in: 800...1200) * speedMult
         
         // Varying sizes
-        self.width = CGFloat.random(in: 1.5...3.0)
-        self.length = CGFloat.random(in: 15...40)
+        self.width = CGFloat.random(in: 1.5...3.0) * sizeMult
+        self.length = CGFloat.random(in: 15...40) * sizeMult
         
         self.opacity = Float.random(in: 0.4...0.8)
         self.isActive = true
@@ -43,15 +47,19 @@ public struct Raindrop {
     
     /// Reset raindrop to spawn at top of screen
     public mutating func respawn(screenWidth: CGFloat, screenHeight: CGFloat) {
+        let settings = RainSettings.shared
+        let sizeMult = CGFloat(settings.dropSizeMultiplier)
+        let speedMult = CGFloat(settings.dropSpeedMultiplier)
+
         x = CGFloat.random(in: -100...(screenWidth + 100))
         y = -length
         
-        let wind = RainSettings.shared.horizontalWindVelocity
+        let wind = settings.horizontalWindVelocity
         vx = wind + CGFloat.random(in: -20...20)
-        vy = CGFloat.random(in: 800...1200)
+        vy = CGFloat.random(in: 800...1200) * speedMult
         
-        width = CGFloat.random(in: 1.5...3.0)
-        length = CGFloat.random(in: 15...40)
+        width = CGFloat.random(in: 1.5...3.0) * sizeMult
+        length = CGFloat.random(in: 15...40) * sizeMult
         opacity = Float.random(in: 0.4...0.8)
         
         isActive = true
