@@ -12,24 +12,26 @@ public class PhysicsEngine {
     /// Terminal velocity for raindrops (points per second)
     private let terminalVelocity: CGFloat = 1500
     
-    /// Coefficient of restitution for water bouncing off the dock (0.3-0.5 for realistic water)
-    private let restitution: CGFloat = 0.35
+    /// Coefficient of restitution for water (lower is more 'splat', less 'bounce')
+    private let restitution: CGFloat = 0.15
     
     /// Friction coefficient for horizontal velocity on bounce
-    private let friction: CGFloat = 0.7
+    private let friction: CGFloat = 0.5
     
     /// Minimum velocity to continue bouncing (below this, drop dies)
-    private let minBounceVelocity: CGFloat = 50
+    private let minBounceVelocity: CGFloat = 100
     
     /// Maximum bounces before drop is deactivated
-    private let maxBounces = 2
+    private let maxBounces = 1
     
     // MARK: - State
     
     private let dockDetector = DockDetector()
+    private let windowDetector = WindowDetector()
     private var screenWidth: CGFloat = 0
     private var screenHeight: CGFloat = 0
     private var dockFrame: CGRect = .zero
+    private var windowFrames: [CGRect] = []
     
     public init() {}
     
@@ -38,6 +40,11 @@ public class PhysicsEngine {
         screenWidth = width
         screenHeight = height
         dockFrame = dockDetector.dockFrameInViewCoordinates(screenHeight: height)
+    }
+
+    /// Refresh current window list
+    public func updateWindowInfo() {
+        windowFrames = windowDetector.detectVisibleWindows(screenHeight: screenHeight)
     }
     
     /// Update a raindrop's physics for one frame
@@ -62,18 +69,16 @@ public class PhysicsEngine {
         drop.x += drop.vx * deltaTime
         drop.y += drop.vy * deltaTime
         
+        // Check window collisions
+        for window in windowFrames {
+            if checkCollision(drop: &drop, surface: window, isDock: false, splashes: &splashes) {
+                return splashes // Return early if hitting a window to avoid passing through
+            }
+        }
+
         // Check dock collision
         if !dockFrame.isEmpty {
-            let dockTop = dockFrame.minY
-            let dropBottom = drop.y + drop.length
-            
-            // Check if drop hit the dock
-            if dropBottom >= dockTop && drop.y < dockTop + dockFrame.height {
-                if drop.x >= dockFrame.minX && drop.x <= dockFrame.maxX {
-                    // Collision with dock!
-                    splashes = handleDockCollision(drop: &drop, dockTop: dockTop)
-                }
-            }
+            _ = checkCollision(drop: &drop, surface: dockFrame, isDock: true, splashes: &splashes)
         }
         
         // Check if drop went off screen
@@ -84,37 +89,49 @@ public class PhysicsEngine {
         return splashes
     }
     
-    /// Handle collision with dock, applying bounce physics
-    private func handleDockCollision(drop: inout Raindrop, dockTop: CGFloat) -> [SplashParticle] {
+    /// Check and handle collision with a surface
+    private func checkCollision(drop: inout Raindrop, surface: CGRect, isDock: Bool, splashes: inout [SplashParticle]) -> Bool {
+        let surfaceTop = surface.minY
+        let dropBottom = drop.y + drop.length
+        
+        // Detect impact with top edge - use a tighter threshold for points (e.g., 5-10 pts)
+        if dropBottom >= surfaceTop && drop.y < surfaceTop + 10 {
+            if drop.x >= surface.minX && drop.x <= surface.maxX {
+                // Collision!
+                splashes.append(contentsOf: handleCollision(drop: &drop, surfaceTop: surfaceTop, isDock: isDock))
+                return true
+            }
+        }
+        return false
+    }
+
+    /// Handle collision with a surface, applying bounce/drip physics
+    private func handleCollision(drop: inout Raindrop, surfaceTop: CGFloat, isDock: Bool) -> [SplashParticle] {
         drop.bounceCount += 1
         
-        // Position correction - place drop on top of dock
-        drop.y = dockTop - drop.length
+        // Position correction - place drop on top of surface
+        drop.y = surfaceTop - drop.length
         
-        // Apply bounce physics
-        // Reverse vertical velocity with energy loss
+        // Apply bounce/splat physics
+        // Reverse vertical velocity with significant energy loss
         drop.vy = -drop.vy * restitution
         
-        // Apply friction to horizontal velocity
+        // Apply friction/drift - much less aggressive now
         drop.vx *= friction
+        drop.vx += CGFloat.random(in: -15...15)
         
-        // Add some randomness to make it look more natural
-        drop.vx += CGFloat.random(in: -20...20)
+        // Reduce opacity and size significantly on first hit
+        drop.opacity *= 0.5
+        drop.length *= 0.4
+        drop.width *= 1.2 // Flatten it out
         
-        // Reduce opacity after bounce
-        drop.opacity *= 0.7
-        
-        // Shorten the drop after impact (it's breaking up)
-        drop.length *= 0.6
-        drop.width *= 0.8
-        
-        // Check if drop should die
+        // Check if drop should die (splat)
         if abs(drop.vy) < minBounceVelocity || drop.bounceCount >= maxBounces {
             drop.isActive = false
         }
         
         // Generate splash particles
-        return generateSplash(at: drop.x, y: dockTop, intensity: drop.bounceCount == 1 ? 1.0 : 0.5)
+        return generateSplash(at: drop.x, y: surfaceTop, intensity: isDock ? 1.2 : 0.9)
     }
     
     /// Generate splash particles at impact point

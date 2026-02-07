@@ -1,39 +1,44 @@
 import AppKit
 
 /// Transparent, click-through overlay window covering the entire screen for rain rendering
-public class RainOverlayWindow: NSWindow {
+public class RainOverlayWindow: NSPanel {
     
     public init(screen: NSScreen) {
         super.init(
             contentRect: screen.frame,
-            styleMask: .borderless,
+            styleMask: [.borderless, .nonactivatingPanel],
             backing: .buffered,
             defer: false
         )
+        self.isReleasedWhenClosed = false
         
         configureWindow()
     }
     
     private func configureWindow() {
-        // Transparent background
+        // backgroundColor = NSColor.red.withAlphaComponent(0.3)
         backgroundColor = .clear
         isOpaque = false
         hasShadow = false
         
-        // Window level: above desktop, below normal windows
-        level = NSWindow.Level(rawValue: Int(CGWindowLevelForKey(.desktopIconWindow)) + 1)
+        // Window level: try statusBar level (lower than floating, might have better permissions)
+        level = .mainMenu + 1
+        
+        // Ensure it doesn't take focus unless needed
+        becomesKeyOnlyIfNeeded = true
         
         // Collection behavior for proper screen handling
-        collectionBehavior = [.canJoinAllSpaces, .stationary, .ignoresCycle]
+        collectionBehavior = [.canJoinAllSpaces, .stationary, .ignoresCycle, .fullScreenAuxiliary]
         
         // Allow clicks to pass through
         ignoresMouseEvents = true
         
-        // Don't show in exposé or window lists
-        isExcludedFromWindowsMenu = true
+        // styleMask.insert(.nonactivatingPanel) -- already in init
         
-        // Prevent activation
-        styleMask.insert(.nonactivatingPanel)
+        isReleasedWhenClosed = false
+        hidesOnDeactivate = false
+        
+        print("🪟 Window configured with level: \(level.rawValue), frame: \(frame)")
     }
     
     // Prevent the window from becoming key

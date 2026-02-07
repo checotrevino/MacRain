@@ -2,6 +2,7 @@ import AppKit
 import SwiftUI
 
 /// Main application delegate handling menu bar status item and rain overlay window
+@MainActor
 public class AppDelegate: NSObject, NSApplicationDelegate {
     private var statusItem: NSStatusItem?
     private var rainWindow: RainOverlayWindow?
@@ -25,16 +26,26 @@ public class AppDelegate: NSObject, NSApplicationDelegate {
     }
     
     private func setupRainOverlay() {
-        guard let screen = NSScreen.main else { return }
+        guard let screen = NSScreen.main else {
+            print("❌ No main screen found")
+            return
+        }
+        
+        let screenFrame = screen.frame
+        print("✅ Setting up rain overlay on screen: \(screenFrame)")
         
         rainWindow = RainOverlayWindow(screen: screen)
-        rainViewController = RainViewController()
+        rainViewController = RainViewController(screenFrame: screenFrame)
         
         if let viewController = rainViewController {
             rainWindow?.contentViewController = viewController
         }
         
-        rainWindow?.makeKeyAndOrderFront(nil)
+        // Force window to front
+        DispatchQueue.main.async {
+            self.rainWindow?.orderFrontRegardless()
+            self.rainWindow?.setIsVisible(true)
+        }
     }
     
     @objc private func quitApp() {

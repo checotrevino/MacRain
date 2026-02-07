@@ -45,7 +45,7 @@ public struct Raindrop {
     /// Reset raindrop to spawn at top of screen
     public mutating func respawn(screenWidth: CGFloat, screenHeight: CGFloat) {
         x = CGFloat.random(in: 0...screenWidth)
-        y = screenHeight + length // Start just above screen
+        y = -length // Start just above top of screen
         
         vx = CGFloat.random(in: -30...30)
         vy = CGFloat.random(in: 800...1200)
