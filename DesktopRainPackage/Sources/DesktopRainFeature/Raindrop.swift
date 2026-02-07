@@ -90,7 +90,10 @@ public struct SplashParticle {
         self.vx = cos(angle) * speed
         self.vy = -sin(angle) * speed // Negative because y increases downward in our model
         
-        self.radius = CGFloat.random(in: 1.0...3.0)
+        let settings = RainSettings.shared
+        let sizeMult = CGFloat(settings.dropSizeMultiplier)
+        
+        self.radius = CGFloat.random(in: 1.0...3.0) * sizeMult
         self.opacity = Float.random(in: 0.5...0.9)
         self.maxLifetime = CGFloat.random(in: 0.2...0.5)
         self.lifetime = maxLifetime
